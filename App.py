@@ -1,6 +1,6 @@
 ############# importar librerias o recursos#####
 from flask import Flask, request, jsonify
-from flask_mysqldb import MySQL
+from flask_mysqldb import MySQL,MySQLdb
 from flask_cors import CORS, cross_origin
 
 # initializations
@@ -84,9 +84,10 @@ def getAllById(id):
 
 #### ruta para crear un registro########
 @cross_origin()
-@app.route('/add_contact', methods=['POST'])
+@app.route('/add_contact', methods=['GET','POST'])
 def add_contact():
     try:
+     
         if request.method == 'POST':
             fullname = request.json['fullname']  ## nombre
             phone = request.json['phone']        ## telefono
@@ -100,23 +101,34 @@ def add_contact():
         print(e)
         return jsonify({"informacion":e})
 
+def mostar_existe_datos(id)->bool:
+       cur = mysql.connection.cursor()
+       cur.execute('SELECT COUNT(*) FROM contacts where id =%s',(id,))
+       existe_usuario=cur.fetchone()[0]
+       cur.close()
+       if existe_usuario==0:
+            return True
+       return False
 
 ######### ruta para actualizar################
 @cross_origin()
 @app.route('/update/<id>', methods=['PUT'])
 def update_contact(id):
     try:
+        if mostar_existe_datos(id):
+            return jsonify({"informacion":" No se pudo actualizar este usuario "})
+        
+        cur = mysql.connection.cursor()
         fullname = request.json['fullname']
         phone = request.json['phone']
         email = request.json['email']
-        cur = mysql.connection.cursor()
         cur.execute("""
-        UPDATE contacts
-        SET fullname = %s,
-            email = %s,
-            phone = %s
-        WHERE id = %s
-        """, (fullname, email, phone, id))
+            UPDATE contacts
+            SET fullname = %s,
+                email = %s,
+                phone = %s
+            WHERE id = %s
+            """, (fullname, email, phone, id))
         mysql.connection.commit()
         return jsonify({"informacion":"Registro actualizado"})
     except Exception as e:
@@ -129,7 +141,8 @@ def update_contact(id):
 def delete_contact(id):
     try:
         cur = mysql.connection.cursor()
-        cur.execute('DELETE FROM contacts WHERE id = %s', (id,))
+        cur.execute('DELETE FROM contacts WHERE id = %s')
+        
         mysql.connection.commit()
         return jsonify({"informacion":"Registro eliminado"}) 
     except Exception as e:
